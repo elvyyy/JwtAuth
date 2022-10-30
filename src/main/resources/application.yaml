@@ -1,0 +1,20 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: jwtauth
+  datasource:
+    username: vlad
+    password: password
+    url: jdbc:postgresql://localhost:5432/jwtauth
+
+  jpa:
+    show-sql: 'true'
+    hibernate:
+      ddl-auto: update
+#    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: 'true'
