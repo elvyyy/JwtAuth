@@ -4,14 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.ManyToMany;
-import javax.persistence.Table;
+import javax.persistence.*;
 import java.util.Set;
 
 @Entity
@@ -25,7 +18,7 @@ public class Role {
     private Long id;
 
     @Enumerated(EnumType.STRING)
-    private Name role;
+    private Name name;
 
     @ManyToMany(mappedBy = "roles")
     private Set<User> users;
