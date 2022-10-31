@@ -16,7 +16,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 import javax.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
@@ -33,23 +32,29 @@ public class JwtProvider {
     public static final String AUTH_HEADER = HttpHeaders.AUTHORIZATION;
     public static final String ROLES_CLAIM = "Roles";
 
-    @Value("${jwt.secret:changemechangemechangemechangeme}")
-    private String jwtSecret;
-    @Value("${jwt.ttl:3600000}")
-    private Long jwtTimeToLive;
+    @Value("${jwt.access.secret:changemechangemechangemechangeme}")
+    private String accessTokenSecret;
+    @Value("${jwt.refresh.secret:anothersecretanothersecretanothersecret}")
+    private String refreshTokenSecret;
+    @Value("${jwt.ttl:600000}") // default 10m
+    private Long accessTokenTtl;
+    @Value("${jwt.ttl:7200000}") // default 2h
+    private Long refreshTokenTtl;
 
     private final UserDetailsService userDetailsService;
 
     @PostConstruct
     public void init() {
-        byte[] bytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
-        jwtSecret = Base64.getEncoder().encodeToString(bytes);
+        accessTokenSecret = Base64.getEncoder()
+                .encodeToString(accessTokenSecret.getBytes(StandardCharsets.UTF_8));
+        refreshTokenSecret = Base64.getEncoder()
+                .encodeToString(refreshTokenSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(String username, Collection<? extends Role> roles) {
-        Instant issuedAt = Instant.now();
-        Instant expiration = issuedAt.plusMillis(jwtTimeToLive);
-        Set<String> roleNames = roles.stream()
+    public String generateAccessToken(String username, Collection<? extends Role> roles) {
+        var issuedAt = Instant.now();
+        var expiration = issuedAt.plusMillis(accessTokenTtl);
+        var roleNames = roles.stream()
                 .map(Role::getName)
                 .map(Enum::name)
                 .collect(Collectors.toSet());
@@ -59,14 +64,38 @@ public class JwtProvider {
                 .claim(ROLES_CLAIM, roleNames)
                 .setIssuedAt(Date.from(issuedAt))
                 .setExpiration(Date.from(expiration))
-                .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8)))
+                .signWith(Keys.hmacShaKeyFor(accessTokenSecret.getBytes(StandardCharsets.UTF_8)))
                 .compact();
     }
 
-    public boolean isValid(String token) {
+    public String generateRefreshToken(String username) {
+        var issuedAt = Instant.now();
+        var expiration = issuedAt.plusMillis(refreshTokenTtl);
+        return Jwts.builder()
+                .setId(UUID.randomUUID().toString())
+                .setSubject(username)
+                .setIssuedAt(Date.from(issuedAt))
+                .setExpiration(Date.from(expiration))
+                .signWith(Keys.hmacShaKeyFor(refreshTokenSecret.getBytes(StandardCharsets.UTF_8)))
+                .compact();
+    }
+
+    public String extractUsernameFromRefreshToken(String token) {
+        return retrieveBody(token, refreshTokenSecret).getSubject();
+    }
+
+    public boolean isAccessTokenValid(String token) {
+        return isValid(token, accessTokenSecret);
+    }
+
+    public boolean isRefreshTokenValid(String token) {
+        return isValid(token, refreshTokenSecret);
+    }
+
+    private boolean isValid(String token, String secret) {
         try {
             Jwts.parserBuilder()
-                    .setSigningKey(jwtSecret.getBytes(StandardCharsets.UTF_8))
+                    .setSigningKey(secret.getBytes(StandardCharsets.UTF_8))
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
@@ -77,7 +106,7 @@ public class JwtProvider {
     }
 
     public Authentication getAuthentication(String token) {
-        var claims = retrieveBody(token);
+        var claims = retrieveBody(token, accessTokenSecret);
         if (claims.getExpiration().toInstant().isBefore(Instant.now())) {
             throw new JwtValidationException("The token has expired");
         }
@@ -86,10 +115,10 @@ public class JwtProvider {
         return new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
     }
 
-    private Claims retrieveBody(String token) {
+    private Claims retrieveBody(String token, String secret) {
         try {
             return Jwts.parserBuilder()
-                    .setSigningKey(jwtSecret.getBytes(StandardCharsets.UTF_8))
+                    .setSigningKey(secret.getBytes(StandardCharsets.UTF_8))
                     .build()
                     .parseClaimsJws(token)
                     .getBody();

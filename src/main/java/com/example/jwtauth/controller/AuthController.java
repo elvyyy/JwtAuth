@@ -1,5 +1,6 @@
 package com.example.jwtauth.controller;
 
+import com.example.jwtauth.dto.RefreshTokenRq;
 import com.example.jwtauth.dto.SignInRq;
 import com.example.jwtauth.dto.SignUpRq;
 import com.example.jwtauth.exception.UsernamePasswordNotExistException;
@@ -15,11 +16,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -58,7 +56,6 @@ public class AuthController {
 
     @PostMapping("/signin")
     @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize("permitAll()")
     public Object login(@RequestBody SignInRq signInRq) {
         try {
             var authentication = new UsernamePasswordAuthenticationToken(signInRq.username(), signInRq.password());
@@ -74,7 +71,24 @@ public class AuthController {
         var roles = user.getRoles().stream().map(Role::getName).collect(Collectors.toList());
         return Map.of("username", username,
                 "roles", roles,
-                "access_token", jwtProvider.generateToken(username, user.getRoles()));
+                "access_token", jwtProvider.generateAccessToken(username, user.getRoles()),
+                "refresh_token", jwtProvider.generateRefreshToken(username));
+    }
+
+    @PostMapping("token/refresh")
+    public Object refreshTokens(@RequestBody RefreshTokenRq refreshTokenRq) {
+        var token = refreshTokenRq.token();
+        if (!jwtProvider.isRefreshTokenValid(token)) {
+            throw new RuntimeException("Invalid or expired refresh token!");
+        }
+        var username = jwtProvider.extractUsernameFromRefreshToken(token);
+        var user = userRepository.findByUsername(username)
+                .orElseThrow(IllegalArgumentException::new);
+        var roles = user.getRoles().stream().map(Role::getName).collect(Collectors.toList());
+        return Map.of("username", username,
+                "roles", roles,
+                "access_token", jwtProvider.generateAccessToken(username, user.getRoles()),
+                "refresh_token", jwtProvider.generateRefreshToken(username));
     }
 
 }

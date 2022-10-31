@@ -1,12 +1,8 @@
 package com.example.jwtauth.security.filter;
 
-import com.example.jwtauth.exception.JwtValidationException;
 import com.example.jwtauth.security.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -26,7 +22,7 @@ public class AuthenticationFilter extends OncePerRequestFilter {
         var authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             var bearerToken = authHeader.substring(7);
-            if (jwtProvider.isValid(bearerToken)) {
+            if (jwtProvider.isAccessTokenValid(bearerToken)) {
                 var authentication = jwtProvider.getAuthentication(bearerToken);
                 var context = SecurityContextHolder.createEmptyContext();
                 context.setAuthentication(authentication);
