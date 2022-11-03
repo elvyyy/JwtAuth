@@ -107,9 +107,6 @@ public class JwtProvider {
 
     public Authentication getAuthentication(String token) {
         var claims = retrieveBody(token, accessTokenSecret);
-        if (claims.getExpiration().toInstant().isBefore(Instant.now())) {
-            throw new JwtValidationException("The token has expired");
-        }
         var username = claims.getSubject();
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
         return new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());

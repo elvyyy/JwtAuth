@@ -13,12 +13,10 @@ import java.util.Set;
 @NoArgsConstructor
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
     private String username;
     private String email;
-
-    @Column(length = 60)
     private byte[] password;
 
     @ManyToMany(fetch = FetchType.EAGER)
